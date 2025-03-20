@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 #shape functions(lagrange basis functions) Psi_i on Reference element
 def Psi_0(x):
     return 2*(x-1/2)*(x-1)
@@ -78,18 +78,69 @@ def elemental_load_vec(f, h, x_k):
     
     return h * b_local
 
+def ekstended_stiffness_matrix(N):
+    """
+    Assembles the extended global stiffness matrix A from elemental matrices.
+    
+    input:
+    - N: number of elements.
+
+    Returns:
+    - A_global: numpy array ((2N+1)x(2N+1))
+        The assembled global stiffness matrix.
+    """
+    x, h = make_partition(N)  # Generate mesh and element size
+    num_nodes = 2 * N + 1  # Total number of global nodes
+    A_global = np.zeros((num_nodes, num_nodes))  # Initialize global matrix
+    
+    for k in range(N):  # Loop over elements
+        A_local = elemental_A(h)  # Get elemental stiffness matrix
+        global_indices = [index_mapping(k, alpha) for alpha in range(3)]  # Map local to global
+
+        # Assemble into global matrix
+        for i in range(3):
+            for j in range(3):
+                A_global[global_indices[i], global_indices[j]] += A_local[i, j]
+    
+    return A_global
 
 
+def extended_load_vector(N, f):
+    """
+    Assembles the extended global load vector b from elemental load vectors.
+    
+    input:
+    - N: Number of elements.
+    - f: Source function f(x).
 
-# Example usage: Compute for f(x) = sin(pi*x) over an element [0, 0.1]
-f = lambda x: 1
-h_example = 0.1
-x_k_example = 0  # Left endpoint of the element
+    Returns:
+    - b_global: numpy array (2N+1,)
+        The assembled global load vector.
+    """
+    x, h = make_partition(N)  # Generate mesh and element size
+    num_nodes = 2 * N + 1  # Total number of global nodes
+    b_global = np.zeros(num_nodes)  # Initialize global vector
+    
+    for k in range(N):  # Loop over elements
+        x_k = x[k]  # Left endpoint of the element
+        b_local = elemental_load_vec(f, h, x_k)  # Compute local load vector
+        global_indices = [index_mapping(k, alpha) for alpha in range(3)]  # Map local to global
 
-# Compute the elemental matrix and load vector
-A_k = elemental_A(h_example)
-b_k = elemental_load_vec(f, h_example, x_k_example)
+        # Assemble into global vector
+        for i in range(3):
+            b_global[global_indices[i]] += b_local[i]
+    
+    return b_global
 
-# Print results
-print("Elemental Stiffness Matrix A_{K_k}:\n", A_k)
-print("\nElemental Load Vector b_{K_k}:\n", b_k)
+def apply_Dirichlet_conditions(A_global, b_global):
+    """
+    Applies homogeneous Dirichlet boundary conditions (u(0) = u(1) = 0)
+    by removing the first and last rows/columns of the stiffness matrix
+    and the first and last entries of the load vector.
+
+    """
+    A_reduced = A_global[1:-1, 1:-1]  # Remove first and last rows/columns
+    b_reduced = b_global[1:-1]  # Remove first and last elements of the load vector
+    
+    return A_reduced, b_reduced
+
