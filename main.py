@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.sparse as sci
 #shape functions(lagrange basis functions) Psi_i on Reference element
 def Psi_0(x):
     return 2*(x-1/2)*(x-1)
@@ -11,6 +12,16 @@ def Psi_2(x):
     return 2*x*(x-1/2)
 
 def make_partition(N):
+
+    ''' 
+    function to make mesh partition
+    input: 
+    N: number of nodes
+
+    reurns: 
+    x: array of [0,h,2h,...,1] on the nodes
+    h: stepsize
+    '''
     x = np.linspace(0,1,N+1)
     h = x[1]-x[0]
 
@@ -46,7 +57,6 @@ def elemental_A(h):
     A = 1/(3*h)*np.array([[7, -8,1], [-8,16,-8],[1,-8,7]])
     return A
 
-import numpy as np
 
 def elemental_load_vec(f, h, x_k):
     """
@@ -78,7 +88,7 @@ def elemental_load_vec(f, h, x_k):
     
     return h * b_local
 
-def ekstended_stiffness_matrix(N):
+def extended_stiffness_matrix(N):
     """
     Assembles the extended global stiffness matrix A from elemental matrices.
     
@@ -91,7 +101,7 @@ def ekstended_stiffness_matrix(N):
     """
     x, h = make_partition(N)  # Generate mesh and element size
     num_nodes = 2 * N + 1  # Total number of global nodes
-    A_global = np.zeros((num_nodes, num_nodes))  # Initialize global matrix
+    A_global = sci.lil_matrix((num_nodes, num_nodes))  #initialise sparce lil_matrix for construction
     
     for k in range(N):  # Loop over elements
         A_local = elemental_A(h)  # Get elemental stiffness matrix
@@ -102,7 +112,7 @@ def ekstended_stiffness_matrix(N):
             for j in range(3):
                 A_global[global_indices[i], global_indices[j]] += A_local[i, j]
     
-    return A_global
+    return A_global.tocsr() #convert to csr for efficient computations
 
 
 def extended_load_vector(N, f):
@@ -132,6 +142,7 @@ def extended_load_vector(N, f):
     
     return b_global
 
+
 def apply_Dirichlet_conditions(A_global, b_global):
     """
     Applies homogeneous Dirichlet boundary conditions (u(0) = u(1) = 0)
@@ -144,3 +155,77 @@ def apply_Dirichlet_conditions(A_global, b_global):
     
     return A_reduced, b_reduced
 
+def solver(f,N, dirichlet = True):
+
+    '''
+    function to solve the linear system Au = b, for the solution u
+    A is the stiffness matrix, b is the load vector
+    input: 
+    - N: number of nodes
+    - f: source function
+
+    returns:
+    - u: solution to poisson problem in sparce format
+    '''
+    A = extended_stiffness_matrix(N)
+    b = extended_load_vector(N,f)
+
+    if dirichlet == True:
+        A,b = apply_Dirichlet_conditions(A,b)
+    u = sci.linalg.spsolve(A,b)
+
+    return u
+
+
+
+def f1(x):
+    '''source function f(x) = 1'''
+    return np.ones_like(x)
+def exact1(x):
+    return 1/2*x*(1-x)
+
+def f2(x):
+    return np.exp(-x)*(np.sin(np.pi*x)  +np.pi**2*np.sin(np.pi*x))
+def exact2(x):
+    return np.exp(-x)*np.sin(np.pi*x)
+
+def plot_FEM_and_exact(u_aprox, u_exact, N, direchlet=True):
+    '''
+    Plots the approximated FEM solution against the exact solution.
+
+    input:
+    - u_aprox: solution from FEM (assumed to be full vector of length 2N+1)
+    - u_exact: callable exact solution u(x)
+    - N: number of elements
+    '''
+
+    x_nodes = np.linspace(0, 1, 2*N + 1)  # FEM global nodes (where u_aprox is defined)
+    print(x_nodes, x_nodes[1:-1])
+    exact_values = u_exact(x_nodes) 
+    print(exact_values.shape)
+    if direchlet:
+        x_nodes = x_nodes[1:-1]
+    exact_values = u_exact(x_nodes)   # Evaluate exact solution at same points
+    # print(exact_values.shape)
+    errors = np.abs(exact_values - u_aprox)
+    
+    plt.plot(x_nodes, u_aprox, 'o-', label='FEM Approximation')
+    plt.plot(x_nodes, exact_values, '--', label='Exact Solution')
+    plt.plot(x_nodes, errors, label = f'|u_exact - u_aprox|, max = {np.max(errors)}')
+    plt.xlabel('x')
+    plt.ylabel('u(x)')
+    plt.title(f'FEM vs Exact Solution (N = {N})')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+    print(f'u exact =  {exact_values}')
+    print(f'u_aprox = {u_aprox}')
+
+
+
+# u1 = solver(f1,10) #f (x) = 1, N=10
+# plot_FEM_and_exact(u1, exact1, 10)
+
+u2 = solver(f2, 10)
+plot_FEM_and_exact(u2, exact2, 10)
