@@ -185,9 +185,10 @@ def exact1(x):
     return 1/2*x*(1-x)
 
 def f2(x):
-    return np.exp(-x)*(np.sin(np.pi*x)  +np.pi**2*np.sin(np.pi*x))
+    return -np.exp(-x)*(np.sin(np.pi*x)*(1-np.pi**2) - 2*np.pi*np.cos(np.pi*x))
+    return 
 def exact2(x):
-    return np.exp(-x)*np.sin(np.pi*x)
+    return np.exp(-x)*(np.sin(np.pi*x))
 
 def plot_FEM_and_exact(u_aprox, u_exact, N, direchlet=True):
     '''
