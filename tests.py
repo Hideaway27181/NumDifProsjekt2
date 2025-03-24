@@ -18,6 +18,7 @@ def exact2(x):
 def plot_FEM_and_exact(u_aprox, u_exact, N, direchlet=True):
     '''
     Plots the approximated FEM solution against the exact solution.
+    Plots absolute error and shows max norm of errors
 
     input:
     - u_aprox: solution from FEM (assumed to be full vector of length 2N+1)
