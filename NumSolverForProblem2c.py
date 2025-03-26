@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
+from FEM_setup import *
+from scipy.sparse import bmat
 
 def y_d_function(x):
    return 0.5 * x * (1.0 - x)
@@ -10,18 +12,12 @@ def y_d2_function(x):
     return 1
 
 def y_d3_function(x): 
-    if x == 1/4:
-        return 1
-    elif x == 1/3:
+    if x>=1/4 and x<=3/4:
         return 1
     else:
         return 0 
     
-
-
-
-
-def generate_mesh(num_elements):
+# def generate_mesh(num_elements):
     """
     Create a simple uniform mesh of [0,1] with 'num_elements' elements.
     Each element is quadratic (P2), so we have 2 degrees of freedom per element interior,
@@ -32,10 +28,10 @@ def generate_mesh(num_elements):
     nodes = np.linspace(0, 1, 2*num_elements + 1)  # e.g. for num_elements=4 -> 9 nodes
     return nodes
 
-def local_matrices(x0, x1):
+def local_matrices_linear(x0, x1):
     """
     Return the local mass and stiffness matrices for a quadratic element [x0, x1]
-    with standard shape functions.  In 1D (P2), each local matrix is 3x3.
+    with linear.  In 1D (P2), each local matrix is 3x3.
     We assume equally spaced local nodes in [x0, x1], i.e. at x0, (x0+x1)/2, x1.
     
     For polynomial basis of degree <=2 on [x0, x1], 
@@ -65,7 +61,16 @@ def local_matrices(x0, x1):
     ], dtype=float)
     return M_loc, K_loc
 
-def assemble_global_matrices(nodes):
+def elemental_mass_matrix_lagrende(h):
+    '''
+    function to create the elemental mass matrix for the legrendre basis. with stepsize h
+    F_ij is the intergral over K of psi_i*psi_j dtau
+    
+    '''
+    F = np.array([[2/15,1/15,-1/30 ],[1/15,8/15,1/15],[-1/30,1/15,2/15]])
+    return 1/h*F
+
+# def assemble_global_matrices(nodes):
     """
     Assemble the global mass (M) and stiffness (K) matrices for quadratic (P2) elements
     on the interior DOFs (i.e., excluding the Dirichlet boundary nodes at x=0 and x=1).
@@ -109,7 +114,7 @@ def assemble_global_matrices(nodes):
         
         x0 = nodes[j0]
         x1 = nodes[j2]
-        M_loc, K_loc = local_matrices(x0, x1)
+        M_loc, K_loc = local_matrices_linear(x0, x1)
         
         # Indices in interior dof space (may be -1 if boundary):
         ig0 = interior_index[j0]
@@ -149,7 +154,7 @@ def build_kkt_system(M, K, alpha, yd):
     # and b = [M*yd,  0,  0].
     
     # For convenience, convert to lil for easy block assembly:
-    from scipy.sparse import bmat
+    
     zero = lil_matrix((ndofs, ndofs), dtype=float)
     
     block_11 = M
@@ -178,7 +183,7 @@ def build_kkt_system(M, K, alpha, yd):
     
     return A, b
 
-def solve_optimal_control_1d(num_elems=4, alpha=1e-2):
+def solve_optimal_control_1d(y_d,num_elems=4, alpha=1e-2):
     """
     1) Generate mesh
     2) Assemble interior mass/stiffness
@@ -187,24 +192,19 @@ def solve_optimal_control_1d(num_elems=4, alpha=1e-2):
     5) Solve
     6) Return the solutions (y, u, lambda) plus the mesh for plotting
     """
-    nodes = generate_mesh(num_elems)
-    M, K = assemble_global_matrices(nodes)
+
+    num_elems = int(num_elems)
+    #make the extended mass matrix for legrendre polynomial basis
+    M = extended_matrix(num_elems, elemental_mass_matrix_lagrende) [1:-1, 1:-1] #apply dirichle conditions
+    K = extended_matrix(num_elems,elemental_A)[1:-1,1:-1] #slice to apply dirichle contitions
+    
     ndofs = M.shape[0]
     
-    # Interpolate y_d at interior nodes:
-    yd_vals = np.zeros(ndofs)
-    # Recall we built an 'interior_index' inside 'assemble_global_matrices',
-    # but let's just do it again quickly here:
-    boundary0 = 0
-    boundary1 = len(nodes)-1
-    idx = 0
-    for j in range(len(nodes)):
-        if j==boundary0 or j==boundary1:
-            continue
-        xj = nodes[j]
-        yd_vals[idx] = y_d2_function(xj)
-        idx += 1
-    
+    # Interpolate y_d on the nodes:
+    nodes = np.linspace(0, 1, 2*num_elems + 1)   # Global node array
+    yd_full = y_d_function(nodes)                  # Evaluate y_d on all nodes
+    yd_vals = yd_full[1:-1]
+
     A, b = build_kkt_system(M, K, alpha, yd_vals)
     
     sol = spsolve(A, b)
@@ -252,8 +252,8 @@ def plot_solution(nodes, y, label_str="y_h(x)"):
 # --- Example usage ---
 if __name__ == "__main__":
     num_elems = 20    # more elements => finer mesh
-    alpha = 1e-8  # try changing alpha
-    nodes, y_sol, u_sol, lam_sol = solve_optimal_control_1d(num_elems, alpha)
+    alpha = 0.01  # try changing alpha
+    nodes, y_sol, u_sol, lam_sol = solve_optimal_control_1d(y_d_function,num_elems, alpha)
     
     # Plot state y_h
     plot_solution(nodes, y_sol, label_str=(f"Optimal state y_h(x) for alpha = {alpha}"))

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sci
+
 #shape functions(lagrange basis functions) Psi_i on Reference element
 def Psi_0(x):
     return 2*(x-1/2)*(x-1)
@@ -12,14 +13,15 @@ def Psi_2(x):
     return 2*x*(x-1/2)
 
 def make_partition(N):
+    print('N = ', N)
 
     ''' 
     function to make mesh partition
     input: 
-    N: number of nodes
+    N: number of elements
 
     reurns: 
-    x: array of [0,h,2h,...,1] on the nodes
+    x: array of nodes: [0,h,2h,...,1] on the elements
     h: stepsize
     '''
     x = np.linspace(0,1,N+1)
@@ -49,7 +51,7 @@ def index_mapping(k, alpha):
 
 def elemental_A(h):
     '''
-    make the Elemental matrix A_{K_k}, for a given stepsize h
+    make the Elemental stiffness matrix A_{K_k}, for a given stepsize h
     input: 
     -h: elementsize
     
@@ -88,31 +90,32 @@ def elemental_load_vec(f, h, x_k):
     
     return h * b_local
 
-def extended_stiffness_matrix(N):
+def extended_matrix(N,elemental_matrix):
     """
-    Assembles the extended global stiffness matrix A from elemental matrices.
+    Assembles the extended global matrix A from given elemental matrices .
     
     input:
     - N: number of elements.
+    - elemental_matrix: function to build the elemental matrix
 
     Returns:
     - A_global: numpy array ((2N+1)x(2N+1))
         The assembled global stiffness matrix.
     """
-    x, h = make_partition(N)  # Generate mesh and element size
+    _, h = make_partition(N)  # Generate mesh and element size
     num_nodes = 2 * N + 1  # Total number of global nodes
-    A_global = sci.lil_matrix((num_nodes, num_nodes))  #initialise sparce lil_matrix for construction
+    extetnded = sci.lil_matrix((num_nodes, num_nodes))  #initialise sparce lil_matrix for construction
     
     for k in range(N):  # Loop over elements
-        A_local = elemental_A(h)  # Get elemental stiffness matrix
+        local_matrix = elemental_matrix(h)  # Get elemental matrix
         global_indices = [index_mapping(k, alpha) for alpha in range(3)]  # Map local to global
 
         # Assemble into global matrix
         for i in range(3):
             for j in range(3):
-                A_global[global_indices[i], global_indices[j]] += A_local[i, j]
+                extetnded[global_indices[i], global_indices[j]] += local_matrix[i, j]
     
-    return A_global.tocsr() #convert to csr for efficient computations
+    return extetnded.tocsr() #convert to csr for efficient computations
 
 
 def extended_load_vector(N, f):
@@ -167,7 +170,7 @@ def solver(f,N, dirichlet = True):
     returns:
     - u: solution to poisson problem in sparce format
     '''
-    A = extended_stiffness_matrix(N)
+    A = extended_matrix(N, elemental_A)
     b = extended_load_vector(N,f)
 
     if dirichlet == True:
