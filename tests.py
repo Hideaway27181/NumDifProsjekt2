@@ -1,4 +1,7 @@
-from FEM_setup import *
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.sparse as sci
+from FEM_setup import fem_solver, plot_FEM_and_exact
 
 ### define f1 and f2, test source functions with exact solutions exac1 and exact 2: 
 def f1(x):
@@ -51,8 +54,8 @@ def plot_FEM_and_exact(u_aprox, u_exact, N, direchlet=True):
 
 
 #tests: 
-u1 = solver(f1,10)
+u1 = fem_solver(f1,10)
 plot_FEM_and_exact(u1, exact1, 10)
 
-u2 = solver(f2, 10)
+u2 = fem_solver(f2, 10)
 plot_FEM_and_exact(u2, exact2, 10)

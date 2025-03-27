@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
-from FEM_setup import *
+from FEM_setup import fem_solver, extended_matrix, elemental_A,make_partition
 from scipy.sparse import bmat
 
 def y_d_function(x):
