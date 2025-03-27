@@ -28,7 +28,7 @@ def y_d3_function(x):
     nodes = np.linspace(0, 1, 2*num_elements + 1)  # e.g. for num_elements=4 -> 9 nodes
     return nodes
 
-def local_matrices_linear(x0, x1):
+# def local_matrices_linear(x0, x1):
     """
     Return the local mass and stiffness matrices for a quadratic element [x0, x1]
     with linear.  In 1D (P2), each local matrix is 3x3.
