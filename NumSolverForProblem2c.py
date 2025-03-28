@@ -5,17 +5,14 @@ from scipy.sparse.linalg import spsolve
 from FEM_setup import fem_solver, extended_matrix, elemental_A,make_partition
 from scipy.sparse import bmat
 
-def y_d_function(x):
-   return 0.5 * x * (1.0 - x)
-
-def y_d2_function(x):
-    return 1
-
-def y_d3_function(x): 
-    if x>=1/4 and x<=3/4:
-        return 1
-    else:
-        return 0 
+def elemental_mass_matrix_lagrende(h):
+    '''
+    function to create the elemental mass matrix for the legrendre basis. with stepsize h
+    F_ij is the intergral over K of psi_i*psi_j dtau
+    
+    '''
+    F = np.array([[2/15,1/15,-1/30 ],[1/15,8/15,1/15],[-1/30,1/15,2/15]])
+    return 1/h*F
     
 # def generate_mesh(num_elements):
     """
@@ -61,14 +58,7 @@ def y_d3_function(x):
     ], dtype=float)
     return M_loc, K_loc
 
-def elemental_mass_matrix_lagrende(h):
-    '''
-    function to create the elemental mass matrix for the legrendre basis. with stepsize h
-    F_ij is the intergral over K of psi_i*psi_j dtau
-    
-    '''
-    F = np.array([[2/15,1/15,-1/30 ],[1/15,8/15,1/15],[-1/30,1/15,2/15]])
-    return 1/h*F
+
 
 # def assemble_global_matrices(nodes):
     """
@@ -202,61 +192,20 @@ def solve_optimal_control_1d(y_d,num_elems=4, alpha=1e-2):
     
     # Interpolate y_d on the nodes:
     nodes = np.linspace(0, 1, 2*num_elems + 1)   # Global node array
-    yd_full = y_d_function(nodes)                  # Evaluate y_d on all nodes
+    yd_full = y_d(nodes)                  # Evaluate y_d on all nodes
     yd_vals = yd_full[1:-1]
 
     A, b = build_kkt_system(M, K, alpha, yd_vals)
     
     sol = spsolve(A, b)
-
-    print(sol)
     
     # The solution 'sol' is [y, u, lambda], each of length ndofs:
     y = sol[0:ndofs]
     u = sol[ndofs:2*ndofs]
     lam = sol[2*ndofs:3*ndofs]
     
-    print(y)
-    print(u)
-    print(lam)
+    # print(y)
+    # print(u)
+    # print(lam)
     return nodes, y, u, lam
 
-def plot_solution(nodes, y, label_str="y_h(x)"):
-    """
-    Plot a piecewise-quadratic function y given by the interior DOFs 'y'
-    on the mesh 'nodes'. We'll just do a naive approach:
-    - Rebuild a full array of length = 2*N+1, inserting boundary=0 at both ends.
-    - Then do a simple plt.plot.
-    """
-    full_sol = np.zeros(len(nodes))
-    boundary0 = 0
-    boundary1 = len(nodes)-1
-    
-    # Fill interior
-    ndofs = len(y)
-    idx = 0
-    for j in range(len(nodes)):
-        if j==boundary0 or j==boundary1:
-            full_sol[j] = 0.0  # boundary condition
-        else:
-            full_sol[j] = y[idx]
-            idx += 1
-    
-    # Now just do a plain plot
-    plt.figure()
-    plt.plot(nodes, full_sol, label=label_str)
-    plt.title(label_str)
-    plt.legend()
-    plt.show()
-
-# --- Example usage ---
-if __name__ == "__main__":
-    num_elems = 20    # more elements => finer mesh
-    alpha = 0.01  # try changing alpha
-    nodes, y_sol, u_sol, lam_sol = solve_optimal_control_1d(y_d_function,num_elems, alpha)
-    
-    # Plot state y_h
-    plot_solution(nodes, y_sol, label_str=(f"Optimal state y_h(x) for alpha = {alpha}"))
-    
-    # Plot control u_h
-    plot_solution(nodes, u_sol, label_str=(f"Optimal control u_h(x) for alpha = {alpha}"))
