@@ -13,8 +13,6 @@ def Psi_2(x):
     return 2*x*(x-1/2)
 
 def make_partition(N):
-
-
     ''' 
     function to make mesh partition
     input: 
