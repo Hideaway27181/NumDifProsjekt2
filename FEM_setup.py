@@ -34,7 +34,7 @@ def map_to_element_k(x_k,h,tau):
     - x (vector of xi's)
     - k (element nr k)
     - h (stepsize)
-    -tau (element in [0,1])    
+    -tau (point in [0,1])    
     '''
     return x_k + h*tau
 
