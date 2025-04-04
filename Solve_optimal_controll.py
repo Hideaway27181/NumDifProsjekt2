@@ -20,8 +20,8 @@ def build_kkt_system(M, K, alpha, yd):
     Build the KKT system matrix A (shape=(3*ndofs,3*ndofs)) and rhs (shape=(3*ndofs,))
     for:
        [ M        0     -K ] [ y ]   [ M*yd ]
-       [ 0   alpha*M   -M ] [ u ] = [   0   ]
-       [-K       -M     0 ] [λ ]   [   0   ]
+       [ 0   alpha*M   M ] [ u ] = [   0   ]
+       [K       -M     0 ] [λ ]   [   0   ]
        
     Here, y,u,λ each have dimension 'ndofs'. 
     'yd' is a vector of length ndofs with the interpolated desired state.
@@ -37,9 +37,9 @@ def build_kkt_system(M, K, alpha, yd):
     
     block_21 = zero
     block_22 = alpha * M
-    block_23 = -M
+    block_23 = M
     
-    block_31 = -K
+    block_31 = K
     block_32 = -M
     block_33 = zero
     
